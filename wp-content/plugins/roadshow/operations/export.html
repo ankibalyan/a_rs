@@ -1,0 +1,188 @@
+<?php 
+
+add_action('wp_ajax_call_export','exportCsv');
+add_action('wp_ajax_nopriv_call_export','exportCsv');
+if(isset($_POST['call_export']))
+{
+	exportXls(null, TRUE, isLogin());
+}
+if(isset($_POST['mail_export']))
+{
+	exportXls(null, FALSE);
+}
+?>
+
+<?php 
+/**
+ * undocumented function
+ *
+ * @return void
+ * @author 
+ **/
+function exportXls($report=NULL,$attachment = FALSE,$user_id = NULL)
+{
+
+	$data = createData($report,$user_id);
+	return genxls($data,$attachment);
+}
+
+/**
+ * undocumented function
+ *
+ * @return void
+ * @author 
+ **/
+function createData($report=null,$user_id = NULL)
+{
+	$data = array();
+	$brandIds = getBrandIds($user_id, TRUE);
+	$data = array();
+	foreach ($brandIds as $brand_id) {
+		$data[$brand_id] = brandLevelOrders($brand_id,TRUE);
+	}
+	return $data;
+}
+
+/**
+ * Generates a Excel file with given data and spliting into sheets
+ *
+ * @return Excel file
+ * @author Ankit Balyan
+ **/
+function  genxls($data = array(), $attachment = false)
+{
+	/** Error reporting */
+	error_reporting(E_ALL);
+
+	/** Include path **/
+//	ini_set('include_path', ini_get('include_path').';../Classes/');
+
+	/** PHPExcel */
+	include ROADSHOW.'PHPExcel/Classes/PHPExcel.php';
+
+	/** PHPExcel_Writer_Excel2007 */
+	include ROADSHOW.'PHPExcel/Classes/PHPExcel/Writer/Excel2007.php';
+
+	// Create new PHPExcel object
+	//echo date('H:i:s') . " Create new PHPExcel object\n";
+	$objPHPExcel = new PHPExcel();
+
+	// Set properties
+	//echo date('H:i:s') . " Set properties\n";
+	$objPHPExcel->getProperties()->setCreator("Ankit Balyan");
+	$objPHPExcel->getProperties()->setLastModifiedBy("Ankit Balyan");
+	$objPHPExcel->getProperties()->setTitle("Office 2007 XLSX Report Title");
+	$objPHPExcel->getProperties()->setSubject("Office 2007 XLSX Report Subject");
+	$objPHPExcel->getProperties()->setDescription("This is a testing report document.");
+
+
+	
+	// Add some data
+	//echo date('H:i:s') . " Add some data\n";
+	$objPHPExcel->setActiveSheetIndex(0);
+
+    //HEre your first sheet
+    $sheet = $objPHPExcel->getActiveSheet();
+    $brands = $data;
+    foreach ($brands as $key => $data) {
+    	 // Add new sheet
+	    $objWorkSheet = $objPHPExcel->createSheet($key); //Setting index when creating
+	    $count = count($data);
+		$rowI = 0;
+		$colI = 0;
+	    foreach($data[0] as $k => $v){
+			$colChar = PHPExcel_Cell::stringFromColumnIndex($colI++);
+			$cellId = $colChar.($rowI+1);
+			$objWorkSheet->SetCellValue($cellId, $k);
+		}	
+		$rowI = 1;
+		foreach ($data as $key => $row) {
+			$colI = 0;
+		    foreach($row as $k => $v){
+		      $colChar = PHPExcel_Cell::stringFromColumnIndex($colI++);
+		      $cellId = $colChar.($rowI+1);
+		      $objWorkSheet->SetCellValue($cellId, $v);
+		    }
+		    $rowI++;
+		}
+	  	// Rename sheet
+		//	echo date('H:i:s') . " Rename sheet\n";
+		$objWorkSheet->setTitle('Brand Id');
+    }
+
+	// Save Excel 2007 file
+//	echo date('H:i:s') . " Write to Excel2007 format\n";
+	$objWriter = new PHPExcel_Writer_Excel2007($objPHPExcel);
+	//$objWriter->save(str_replace('.php', '.xlsx', __FILE__));
+	
+	$filename = "data_".time().".xlsx";
+	if($attachment) 
+	{
+            // output headers so that the file is downloaded rather than displayed
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet charset=utf-8');
+			header('Content-Disposition: attachment;filename='.$filename);
+
+			header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+			header('Content-Disposition: attachment;filename="your_name.xls"');
+			header('Cache-Control: max-age=0');
+			$objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+			$objWriter->save('php://output');
+			return "php://output";
+    }
+    else 
+    {
+    	$DIR = $_SERVER["DOCUMENT_ROOT"].'/rwFiles/';
+		(!is_dir($DIR)) ? mkdir($DIR,0777,true) : '';
+		$path = $DIR.$filename;
+		//$url = "http://".$_SERVER['HTTP_HOST'].'/oddpodimages/'.$filename;
+        $fp = fopen($path, 'w');
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+  		$objWriter->save($path);
+  		fclose($fp);
+  		return $path;
+    }
+
+	// Echo done
+	//echo date('H:i:s') . " Done writing file.\r\n";
+  	
+	die;
+}
+
+/**
+ * Generates a CSV file with given data
+ *
+ * @return void
+ * @author 
+ **/
+function genrateCsv($data = array(), $attachment = false)
+{
+	$filename = "data_".time().".csv";
+	if($attachment) 
+	{
+            // output headers so that the file is downloaded rather than displayed
+            header('Content-Type: text/csv; charset=utf-8');
+            header( 'Content-Disposition: attachment;filename='.$filename);
+            header("Pragma: no-cache");
+            header("Expires: 0");
+            $fp = fopen('php://output', 'w');
+    } 
+    else 
+    {
+    	$DIR = $_SERVER["DOCUMENT_ROOT"].'/rwFiles/';
+		(!is_dir($DIR)) ? mkdir($DIR,0777,true) : '';
+		$path = $DIR.$filename;
+		//$url = "http://".$_SERVER['HTTP_HOST'].'/oddpodimages/'.$filename;
+        $fp = fopen($path, 'w');
+    }
+
+    $keys = array_keys($data[0]);
+   	fputcsv($fp, $keys); 
+
+	// output the column headings
+	foreach ($data as $key => $value) {
+		fputcsv($fp, $value); 
+	}
+	
+	fclose($fp);
+	die;
+}

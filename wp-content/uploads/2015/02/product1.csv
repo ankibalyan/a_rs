@@ -1,0 +1,2 @@
+product_id,brand_id,category_id,product_name,product_desc,product_price,product_group_code,product_code,product_color,product_attr,product_size1,product_size2,product_size3,product_size4,product_size5,product_size6,product_size7,product_size8,created_dt,modified_dt,product_seq
+11,2,9,Gilet,Sleeveless,3799,PGA6,USJK0430,Navy,"Jacket, USPA, Winter, Sleeveless",S,M,L,XL,XXL,3XL,,,0000-00-00 00:00:00,0000-00-00 00:00:00,1
